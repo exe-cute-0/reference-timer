@@ -1,0 +1,623 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Image timer</title>
+    <style>
+        /* ====================== GLOBAL ====================== */
+        body {
+            margin: 0;
+            background-color: #3b3b3b;
+            font-family: Avenir, Helvetica, Arial, sans-serif;
+        }
+
+        #app {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .text-m {
+            font-size: 16px
+        }
+
+        .text-l {
+            font-size: 18px
+        }
+
+        .text-xl {
+            font-size: 24px
+        }
+
+        .icon {
+            padding: 1em;
+        }
+
+        .icon.btn {
+            cursor: pointer;
+        }
+
+        /* ====================== SETTINGS ====================== */
+        #settings {
+            position: absolute;
+            z-index: 1;
+            left: 0;
+            width: 100vw;
+            box-sizing: border-box;
+            height: 40vh;
+            background-color: rgb(0 0 0 / 75%);
+            top: 100%;
+            transition: top .4s ease, transform .3s ease;
+        }
+
+        #open-settings {
+            position: absolute;
+            bottom: 100%;
+            right: 0;
+            transition: transform .4s ease;
+            z-index: 2;
+        }
+
+        #settings.open #open-settings {
+            transform: rotateX(180deg);
+        }
+
+        #settings.open {
+            top: 60%;
+        }
+
+        #settings.peek:not(.open) {
+            transform: translateY(-8em);
+        }
+
+        input#files {
+            display: none;
+        }
+
+        .drawer {
+            color: white;
+            width: 100%;
+            height: 100%;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+
+        .drawer .setting {
+            margin: 0 auto;
+            padding-top: 1em;
+            max-width: 620px;
+        }
+
+        .drawer .setting:last-child {
+            margin-bottom: 2em;
+        }
+
+        .drawer .setting-text {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1em 0;
+        }
+
+        .drawer input[type=range] {
+            display: block;
+            width: 100%;
+        }
+
+        .drawer .value-preview {
+            width: 8em;
+            text-align: right;
+        }
+
+        .drawer #controls {
+            display: flex;
+            flex-direction: column;
+            padding-top: 1em;
+        }
+
+        .drawer #controls .image-numbers {
+            text-shadow: 0 0 10px rgb(0 0 0 / 60%);
+            position: absolute;
+            bottom: 100%;
+            text-align: center;
+            width: 100%;
+            padding: 0.4em;
+        }
+
+        .drawer #controls .buttons {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .drawer #controls .buttons .icon {
+            border-radius: 50%;
+            box-shadow: inset rgb(0 0 0 / 20%) 0 0 4px 3px;
+            background-color: rgb(0 0 0 / 20%);
+            margin: 0.4em;
+            overflow: visible;
+            transition: fill .05s ease, box-shadow .05s ease, background-color .05s ease;
+        }
+
+        .drawer #controls .buttons .icon.disabled {
+            box-shadow: inset transparent 0 0 4px 3px;
+            background-color: transparent;
+            fill: #505050;
+            cursor: default;
+            pointer-events: none;
+            transition: fill .05s ease, box-shadow .2s ease, background-color .2s ease;
+        }
+
+        .drawer #controls .buttons .icon:active {
+            box-shadow: inset rgb(255 255 255 / 20%) 0 0 4px 3px;
+            background-color: rgb(255 255 255 / 20%);
+            cursor: default;
+        }
+
+        .drawer #controls .buttons .icon .pause,
+        .drawer #controls .buttons .icon .play {
+            opacity: 0;
+            transition: opacity .2s ease;
+        }
+
+        .drawer #controls .buttons .icon.pause .pause,
+        .drawer #controls .buttons .icon.play .play {
+            opacity: 1;
+        }
+
+        .drawer #controls .button-group {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .drawer #controls .button-group:not(:last-child) {
+            margin-right: 2em;
+        }
+
+        /* ====================== VIEWPORT ====================== */
+        #viewport {
+            width: 100vw;
+            height: 100vh;
+            position: absolute;
+            top: 0;
+            left: 0;
+            background-size: contain;
+            background-position: center;
+            background-repeat: no-repeat;
+        }
+
+        /* ====================== COUNTDOWN ====================== */
+        #countdown {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            color: white;
+            text-shadow: 0 0 10px rgb(0 0 0 / 60%);
+            padding: 0.4em;
+            z-index: 1;
+        }
+
+    </style>
+</head>
+<body class="text-m">
+<div id="app">
+    <div id="countdown" class="text-xl"></div>
+    <div id="viewport"></div>
+
+    <footer id="settings" class="open">
+        <svg id="open-settings" class="icon btn" xmlns="http://www.w3.org/2000/svg" height="36px" viewBox="0 0 24 24"
+             width="36px" fill="#FFFFFF">
+            <path d="M0 0h24v24H0V0z" fill="none"/>
+            <path d="M12 8l-6 6 1.41 1.41L12 10.83l4.59 4.58L18 14l-6-6z"/>
+        </svg>
+        <section class="drawer text-l">
+            <div id="controls">
+                <div class="image-numbers text-xl">
+                    <span id="image-number-current">0</span> / <span id="image-number-total">0</span>
+                </div>
+                <div class="buttons">
+                    <div class="button-group">
+                        <label for="files">
+                            <svg class="icon btn" xmlns="http://www.w3.org/2000/svg" height="48px" viewBox="0 0 24 24"
+                                 width="48px" fill="#FFFFFF">
+                                <path d="M0 0h24v24H0V0z" fill="none"/>
+                                <path d="M18 20H4V6h9V4H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-9h-2v9zm-7.79-3.17l-1.96-2.36L5.5 18h11l-3.54-4.71zM20 4V1h-2v3h-3c.01.01 0 2 0 2h3v2.99c.01.01 2 0 2 0V6h3V4h-3z"/>
+                            </svg>
+                            <input id="files" type="file" webkitdirectory directory multiple>
+                        </label>
+                        <svg id="btn-clear" class="icon btn" xmlns="http://www.w3.org/2000/svg" height="48px"
+                             viewBox="0 0 24 24" width="48px" fill="#FFFFFF">
+                            <path d="M0 0h24v24H0V0z" fill="none"/>
+                            <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41z"/>
+                        </svg>
+                    </div>
+                    <div class="button-group">
+                        <svg id="btn-previous" class="icon btn disabled" xmlns="http://www.w3.org/2000/svg"
+                             height="48px"
+                             viewBox="0 0 24 24" width="48px" fill="#FFFFFF">
+                            <path d="M0 0h24v24H0V0z" fill="none"/>
+                            <path d="M6 6h2v12H6zm3.5 6l8.5 6V6l-8.5 6zm6.5 2.14L12.97 12 16 9.86v4.28z"/>
+                        </svg>
+                        <svg id="btn-play-pause" class="icon btn play disabled" xmlns="http://www.w3.org/2000/svg"
+                             height="48px"
+                             viewBox="0 0 24 24" width="48px" fill="#FFFFFF">
+                            <path class="play" d="M0 0h24v24H0V0z" fill="none"/>
+                            <path class="play" d="M10 8.64L15.27 12 10 15.36V8.64M8 5v14l11-7L8 5z"/>
+                            <path class="pause" d="M0 0h24v24H0V0z" fill="none"/>
+                            <path class="pause" d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+                        </svg>
+                        <svg id="btn-stop" class="icon btn disabled" xmlns="http://www.w3.org/2000/svg" height="48px"
+                             viewBox="0 0 24 24" width="48px" fill="#FFFFFF">
+                            <path d="M0 0h24v24H0V0z" fill="none"/>
+                            <path d="M16 8v8H8V8h8m2-2H6v12h12V6z"/>
+                        </svg>
+                        <svg id="btn-next" class="icon btn disabled" xmlns="http://www.w3.org/2000/svg" height="48px"
+                             viewBox="0 0 24 24" width="48px" fill="#FFFFFF">
+                            <path d="M0 0h24v24H0V0z" fill="none"/>
+                            <path d="M6 18l8.5-6L6 6v12zm2-8.14L11.03 12 8 14.14V9.86zM16 6h2v12h-2z"/>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+            <div class="setting">
+                <div class="setting-text">
+                    <span>Show image for</span>
+                    <span id="interval-preview" class="value-preview"></span>
+                </div>
+                <input type="range" id="interval" list="interval-presets" max="300" value="90">
+                <datalist id="interval-presets">
+                    <option value="0">Off</option>
+                    <option value="10">10s</option>
+                    <option value="20">20s</option>
+                    <option value="30">30s</option>
+                    <option value="45">45s</option>
+                    <option value="60">1m</option>
+                    <option value="90">1m 30s</option>
+                    <option value="120">2m</option>
+                    <option value="180">3m</option>
+                    <option value="240">4m</option>
+                    <option value="300">5m</option>
+                </datalist>
+            </div>
+            <div class="setting">
+                <div class="setting-text">
+                    <span>Shuffle</span>
+                </div>
+                <input type="checkbox" id="shuffle" value="1" checked>
+            </div>
+        </section>
+    </footer>
+</div>
+<script>
+    const
+        btnToggleSettings = document.getElementById("open-settings"),
+        btnPlayPause = document.getElementById("btn-play-pause"),
+        btnStop = document.getElementById("btn-stop"),
+        btnPrevious = document.getElementById("btn-previous"),
+        btnNext = document.getElementById("btn-next"),
+        elImageNumberCurrent = document.getElementById("image-number-current"),
+        elImageNumberTotal = document.getElementById("image-number-total"),
+        elCountdown = document.getElementById("countdown"),
+        elViewport = document.getElementById("viewport"),
+        elSettings = document.getElementById("settings")
+    elApp = document.getElementById("app")
+
+    const
+        settings = {
+            shuffle: true
+        },
+        state = {
+            imageIndex: 0,
+            images: [],
+            imageMappings: [],
+            timeRemaining: 0,
+            timerActive: false,
+            timerRunning: false
+        }
+
+    /* ====================== SETTING INTERVAL ====================== */
+    {
+        const
+            iptIntervalRange = document.getElementById("interval"),
+            elIntervalPreview = document.getElementById("interval-preview")
+
+        function setIntervalFromRange(interval) {
+            interval = parseInt(interval, 10)
+            console.debug("Setting interval from range", interval)
+            settings.interval = interval
+            if (interval === 0) elIntervalPreview.innerHTML = "Off"
+            else {
+                const seconds = (interval % 60)
+                const minutes = (interval - seconds) / 60
+                elIntervalPreview.innerHTML =
+                    (minutes > 0 ? `${minutes}m ` : "") +
+                    (seconds > 0 ? `${seconds}s ` : "")
+            }
+            stop()
+        }
+
+        iptIntervalRange.addEventListener("change", () => setIntervalFromRange(iptIntervalRange.value))
+        iptIntervalRange.addEventListener("input", () => setIntervalFromRange(iptIntervalRange.value))
+        setIntervalFromRange(iptIntervalRange.value)
+    }
+
+    /* ====================== SELECTING IMAGES ====================== */
+    {
+        const
+            iptFiles = document.getElementById("files"),
+            btnClear = document.getElementById("btn-clear"),
+            {images} = state
+
+        btnClear.addEventListener("click", () => {
+            clearTimer()
+            state.imageIndex = 0
+            images.splice(0, images.length)
+            updateControls()
+            elImageNumberCurrent.innerHTML = '0'
+            elViewport.style.backgroundImage = 'none'
+        }, {passive: true})
+
+        iptFiles.addEventListener("change", () => {
+            if (iptFiles.files)
+                for (let i = 0; i < iptFiles.files.length; i++) {
+                    const file = iptFiles.files[i]
+                    if (file.type.startsWith("image/")) {
+                        console.debug("Adding file", file)
+                        images.push({file})
+                    } else console.debug("Excluding file", file)
+                }
+            state.imageIndex = 0
+            buildImageMappings()
+            updateImageIndex(-state.imageIndex)
+        }, {passive: true})
+    }
+    /* ====================== SELECTING IMAGES ====================== */
+    {
+        const
+            iptShuffle = document.getElementById("shuffle")
+
+        iptShuffle.addEventListener("change", (e) => {
+            settings.shuffle = e.target.checked
+            shuffleImageMappings()
+            updateImageIndex(0)
+        })
+
+    }
+    /* ====================== APPLICATION FLOW CONTROLS ====================== */
+
+
+    btnToggleSettings.addEventListener("click", toggleSettings, {passive: true})
+    btnPlayPause.addEventListener("click", togglePlay, {passive: true})
+    btnStop.addEventListener("click", stop, {passive: true})
+    btnPrevious.addEventListener("click", previous, {passive: true})
+    btnNext.addEventListener("click", next, {passive: true})
+
+    function togglePlay() {
+        if (state.timerActive) {
+            if (state.timerRunning) {
+                console.debug("Pausing")
+                stopTimer()
+            } else {
+                console.debug("Resuming")
+                closeSettings()
+                runTimer()
+            }
+        } else {
+            console.debug("Starting")
+            closeSettings()
+            startTimer()
+        }
+    }
+
+    function stop() {
+        console.debug("Stopping")
+        clearTimer()
+    }
+
+    function next() {
+        console.debug("Next image")
+        updateImageIndex(+1)
+        if (state.timerRunning)
+            startTimer()
+        else if (state.timerActive)
+            resetTimer()
+        else
+            clearTimer()
+    }
+
+    function previous() {
+        if ((settings.interval * 1000) - state.timeRemaining < 1000) {
+            console.debug("Previous image")
+            updateImageIndex(-1)
+        } else {
+            console.debug("Resetting timer")
+        }
+        if (state.timerRunning)
+            startTimer()
+        else if (state.timerActive)
+            resetTimer()
+        else
+            clearTimer()
+    }
+
+
+    /* ====================== TIMER ====================== */
+    function startTimer() {
+        resetTimer()
+        state.timerActive = true
+        runTimer()
+    }
+
+    function runTimer() {
+        state.timerRunning = true
+        state.lastTime = Date.now()
+        state.timerInterval = setInterval(() => {
+            const now = Date.now()
+            state.timeRemaining -= (now - state.lastTime)
+            state.lastTime = now
+            updateCountdown()
+        }, 100)
+        state.timerTimeout = setTimeout(() => {
+            console.debug("Timer reached end, moving to next")
+            next()
+            startTimer()
+        }, state.timeRemaining)
+        updateControls()
+    }
+
+    function stopTimer() {
+        state.timerRunning = false
+        clearInterval(state.timerInterval)
+        clearTimeout(state.timerTimeout)
+        updateControls()
+    }
+
+    function resetTimer() {
+        stopTimer()
+        state.timeRemaining = settings.interval * 1000
+        updateCountdown()
+    }
+
+    function clearTimer() {
+        state.timerActive = false
+        resetTimer()
+    }
+
+    function updateCountdown() {
+        if (!state.timerActive) elCountdown.innerHTML = ""
+        else {
+            const
+                ms = state.timeRemaining % 1000,
+                s = (((state.timeRemaining - ms) / 1000) % 60),
+                m = (state.timeRemaining - (s * 1000) - ms) / 60 / 1000
+            elCountdown.innerHTML = `${`${m}`.padStart(2, "0")}:${`${s}`.padStart(2, "0")}`
+        }
+    }
+
+
+    /* ====================== APPLICATION METHODS ====================== */
+
+    function buildImageMappings() {
+        state.imageMappings.splice(0, state.imageMappings.length)
+        for (let i = 0; i < state.images.length; i++) {
+            state.imageMappings.push(i)
+        }
+        shuffleImageMappings()
+    }
+
+    function shuffleImageMappings() {
+        let currentIndex = state.imageMappings.length, randomIndex
+        while (currentIndex !== 0) {
+            randomIndex = Math.floor(Math.random() * currentIndex)
+            currentIndex--
+            [state.imageMappings[currentIndex], state.imageMappings[randomIndex]] = [state.imageMappings[randomIndex], state.imageMappings[currentIndex]]
+        }
+    }
+
+    function updateImageIndex(d) {
+        if (state.imageIndex + d >= state.imageMappings.length) {
+            console.debug("Reached end")
+            clearTimer()
+            return
+        }
+        state.imageIndex += d
+        elImageNumberCurrent.innerHTML = `${state.imageIndex + 1}`
+        setImage(mapImageIndex(state.imageIndex))
+        updateControls()
+        preloadImages()
+    }
+
+    function loadFile(file) {
+        return new Promise(resolve => {
+            const fileReader = new FileReader()
+            fileReader.addEventListener("load", (e) => {
+                resolve(e.target.result)
+            })
+            fileReader.readAsDataURL(file)
+        })
+    }
+
+    function setImage(image) {
+        if (image.loaded) elViewport.style.backgroundImage = `url(${image.url})`
+        else loadFile(image.file)
+            .then(url => {
+                console.debug("Loaded", image)
+                image.loaded = true
+                image.url = url
+                elViewport.style.backgroundImage = `url(${image.url})`
+            })
+    }
+
+    function preloadImages(count = 2) {
+        const target = state.imageIndex + count
+        for (let i = state.imageIndex; i < target + 1; i++) {
+            const image = mapImageIndex(i)
+            if (!image.loaded) loadFile(image.file)
+                .then(url => {
+                    console.debug("Preloaded", i, image)
+                    image.loaded = true
+                    image.url = url
+                })
+        }
+    }
+
+    function mapImageIndex() {
+        return state.images[settings.shuffle ? state.imageMappings[state.imageIndex] : state.imageIndex]
+    }
+
+    function updateControls() {
+        elImageNumberTotal.innerHTML = `${state.images.length}`
+
+        // Enable/disable previous/next based on image index/image list size
+        if (state.imageIndex > 0) btnPrevious.classList.remove("disabled"); else btnPrevious.classList.add("disabled")
+        if (state.imageIndex < state.images.length - 1) btnNext.classList.remove("disabled"); else btnNext.classList.add("disabled")
+
+        // Enable play if user has added images
+        if (state.images.length > 0) btnPlayPause.classList.remove("disabled"); else btnPlayPause.classList.add("disabled")
+
+        if (state.timerActive) btnStop.classList.remove("disabled"); else btnStop.classList.add("disabled")
+        if (state.timerRunning) {
+            btnPlayPause.classList.add("pause")
+            btnPlayPause.classList.remove("play")
+        } else {
+            btnPlayPause.classList.remove("pause")
+            btnPlayPause.classList.add("play")
+        }
+    }
+
+    function toggleSettings() {
+        if (elSettings.classList.toggle("open")) stopTimer()
+    }
+
+    function closeSettings() {
+        elSettings.classList.remove("open")
+    }
+
+
+    /* ====================== PEEK ON CONTROLS ====================== */
+    function refreshPeekTimeout() {
+        elSettings.classList.add("peek")
+        if (state.peekTimeout) clearTimeout(state.peekTimeout)
+        state.peekTimeout = setTimeout(() => elSettings.classList.remove("peek"), 2000)
+    }
+
+    function stopPeeking() {
+        elSettings.classList.remove("peek")
+        if (state.peekTimeout) clearTimeout(state.peekTimeout)
+    }
+
+    elApp.addEventListener("mousemove", refreshPeekTimeout, {passive: true})
+    elApp.addEventListener("mousedown", refreshPeekTimeout, {passive: true})
+    elApp.addEventListener("mouseup", refreshPeekTimeout, {passive: true})
+    document.addEventListener("mouseleave", stopPeeking, {passive: true})
+    document.addEventListener("mouseout", stopPeeking, {passive: true})
+
+</script>
+</body>
+</html>
